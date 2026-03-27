@@ -1,0 +1,45 @@
+app:
+  persist_dir: "chroma_db"
+  collection: "rag_chunks"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  top_k: 5
+
+history:
+  dir: "generation/history"
+  max_turns_in_prompt: 10
+
+llm:
+  # provider: "ollama" | "openai_compatible" | "prompt_only"
+  provider: "openai_compatible"
+
+  # --- ollama ---
+  # Requires an Ollama server, typically at http://localhost:11434
+  ollama:
+    base_url: "http://localhost:11434"
+    model: "llama3.1"
+
+  # --- openai compatible ---
+  # Works with OpenAI or any OpenAI-compatible endpoint (e.g. vLLM, LM Studio).
+  openai_compatible:
+    base_url: "https://api.openai.com/v1"
+    api_key_env: "OPENAI_API_KEY"
+    model: "gpt-4o-mini"
+
+prompt:
+  # Use {context}, {chat_history}, {question}
+  template: |
+    You are a helpful assistant for a RAG system.
+    Use ONLY the information from <context> to answer. If the answer isn't in the context, say you don't know and ask a clarifying question.
+
+    <chat_history>
+    {chat_history}
+    </chat_history>
+
+    <context>
+    {context}
+    </context>
+
+    User question: {question}
+
+    Answer concisely and cite the source URLs from metadata when relevant.
+

@@ -1,0 +1,8 @@
+trafilatura
+requests
+beautifulsoup4
+readability-lxml
+lxml
+chromadb
+sentence-transformers
+
