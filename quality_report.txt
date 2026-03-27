@@ -1,0 +1,73 @@
+RAG_vibe_coding — Repo Quality Report
+Generated: 2026-03-27 (local)
+
+Summary
+- Status: GOOD foundation for an end-to-end RAG MVP (parse → chunk → embed/store → retrieve → generate)
+- Primary gap: “generation” currently defaults to OpenAI calls and will error until OPENAI_API_KEY is provided.
+- Overall: Python syntax compiles cleanly; pipeline components are modular; outputs are Chroma-friendly.
+
+Repo Structure
+- parsing/
+  - parse_website.py: fetch + extract main text (trafilatura/readability/bs4 fallback), optional site crawl, writes .txt outputs
+  - requirements.txt: parsing-focused deps
+- chunking/
+  - chunk_text.py: reads parsed .txt, splits into 1000-char chunks with 100 overlap, writes JSONL {id, document, metadata}
+- embeddings/
+  - ingest_chroma.py: reads chunk JSONL, embeds via sentence-transformers, stores embeddings in persistent ChromaDB
+- generation/
+  - config.yaml: prompt template + vectorstore/embedding/LLM provider config
+  - chat_rag.py: query → embed → retrieve → prompt → LLM call; maintains chat history JSONL by session
+  - history/: chat transcripts (ignored by .gitignore)
+- chroma_db/: persistent ChromaDB files (ignored by .gitignore)
+- rag_web/: local virtualenv (ignored by .gitignore)
+- requirements.txt: top-level deps (chromadb + sentence-transformers + parsing deps)
+
+Quality Checks Performed
+1) Python syntax compile
+   - Command: rag_web/bin/python -m compileall parsing chunking embeddings generation
+   - Result: PASS (no syntax errors)
+2) Generation smoke test
+   - Command: rag_web/bin/python generation/chat_rag.py --query "What courses do you offer?" --session quality_report_smoke --local-files-only
+   - Result: EXPECTED FAIL because OPENAI_API_KEY is not set (config uses llm.provider=openai_compatible)
+
+Key Design/Implementation Notes
+- Parsing
+  - Strengths: best-effort extraction with strong defaults; polite crawling support (sitemap preference + delay); outputs include URL/title/extractor/fetch timestamp.
+  - Limitations: JS-rendered sites may require a browser fetcher (Playwright) to render content.
+- Chunking
+  - Strengths: deterministic IDs; metadata includes chunk offsets and page metadata; JSONL output is Chroma ingestion-friendly.
+  - Limitations: character-based chunking can cut sentences; for higher quality retrieval consider sentence/paragraph-aware splitting.
+- Embeddings + Chroma
+  - Strengths: persistent store; skips already-ingested ids; cosine space configured.
+  - Limitation: sentence-transformers model download requires network unless already cached; offline mode supported by --local-files-only.
+- Generation
+  - Strengths: prompt templating in YAML; history persisted per session; supports Ollama + OpenAI-compatible endpoints.
+  - Current behavior: config defaults to OpenAI-compatible provider; requires OPENAI_API_KEY in environment (or .env if python-dotenv is installed).
+
+Security / Git Hygiene
+- .gitignore: includes virtualenvs, .env, chroma_db, and generated artifacts (parsed text, chunk JSONL, history).
+- Note: The repository currently has a committed “.env” file created as a template; it is ignored by .gitignore, but if it was already committed you should remove it from git history or delete it from tracking before pushing.
+
+Repro / Runbook (Happy Path)
+1) Parse (single page)
+   - python parsing/parse_website.py "https://example.com" --out parsing/parsed_results.txt
+2) Chunk
+   - python chunking/chunk_text.py --in parsing/parsed_results.txt --out chunking/chunks.jsonl --chunk-size 1000 --overlap 100
+3) Ingest to Chroma (using rag_web env)
+   - rag_web/bin/python embeddings/ingest_chroma.py --in chunking/chunks.jsonl --persist-dir chroma_db --collection rag_chunks --model sentence-transformers/all-MiniLM-L6-v2 --local-files-only
+4) Chat
+   - If using OpenAI-compatible:
+     - Put OPENAI_API_KEY in .env (and ensure python-dotenv is installed), then:
+       - rag_web/bin/python generation/chat_rag.py --query "..." --session demo --local-files-only
+   - If using Ollama:
+     - Set llm.provider: "ollama" in generation/config.yaml and run an Ollama server.
+
+Top Recommendations (Next Improvements)
+- Add a README.md with “one-command” run instructions and environment setup.
+- Add basic tests:
+  - unit tests for chunk splitting + page header parsing
+  - a retrieval test that asserts col.count() > 0 and query returns expected metadata keys
+- Add a small evaluation script (e.g., queries + expected answers) to validate RAG quality over time.
+- Improve generation:
+  - include citations formatting, dedupe near-identical retrieved chunks, and add max context length handling.
+
