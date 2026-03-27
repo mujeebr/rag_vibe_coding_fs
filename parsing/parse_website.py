@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Web page parser for RAG ingestion.
+Web page parser for RAG ingestion. this is just for testing.
 
 Best-effort extraction strategy:
 1) trafilatura (best for main-text extraction) if installed
